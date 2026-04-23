@@ -1,27 +1,36 @@
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { resolve } from 'path';
 
 export interface PageImage {
   pageNumber: number;
-  /** Path relative to DATA_DIR, e.g. "images/run-abc/page-3.png" */
   storagePath: string;
   widthPx: number;
   heightPx: number;
-  /** Claude vision description — populated only when AI enhancement runs */
   description?: string;
 }
 
-/**
- * Render every page of a PDF to a PNG file using pdfjs-dist + @napi-rs/canvas.
- * Saved under dataDir/images/runId/page-{n}.png.
- */
+/** Returns true if the canvas native module is available in this environment. */
+async function canvasAvailable(): Promise<boolean> {
+  try {
+    await import('@napi-rs/canvas');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function renderPdfPages(
   pdfPath: string,
   dataDir: string,
   runId: string,
   scaleFactor = 1.5,
 ): Promise<PageImage[]> {
+  if (!(await canvasAvailable())) {
+    console.warn('[image-extractor] canvas module not available — skipping page rendering');
+    return [];
+  }
+
   const { createCanvas } = await import('@napi-rs/canvas');
   const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   GlobalWorkerOptions.workerSrc = '';
@@ -29,12 +38,8 @@ export async function renderPdfPages(
   const { readFile } = await import('fs/promises');
   const data = new Uint8Array(await readFile(pdfPath));
 
-  const doc = await getDocument({
-    data,
-    verbosity: 0,
-    // canvasFactory is valid at runtime but absent from the bundled type defs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any).promise;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = await getDocument({ data, verbosity: 0 } as any).promise;
 
   const outDir = resolve(dataDir, 'images', runId);
   mkdirSync(outDir, { recursive: true });
@@ -44,25 +49,20 @@ export async function renderPdfPages(
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const viewport = page.getViewport({ scale: scaleFactor });
-
     const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height));
-    const context = canvas.getContext('2d');
 
     await page.render({
-      canvasContext: context as unknown as CanvasRenderingContext2D,
+      canvasContext: canvas.getContext('2d') as unknown as CanvasRenderingContext2D,
       viewport,
     }).promise;
 
     const filename = `page-${i}.png`;
-    const absPath = resolve(outDir, filename);
-    const relPath = `images/${runId}/${filename}`;
-
-    await writeFile(absPath, canvas.toBuffer('image/png'));
+    await writeFile(resolve(outDir, filename), canvas.toBuffer('image/png'));
     page.cleanup();
 
     results.push({
       pageNumber: i,
-      storagePath: relPath,
+      storagePath: `images/${runId}/${filename}`,
       widthPx: canvas.width,
       heightPx: canvas.height,
     });
@@ -72,56 +72,25 @@ export async function renderPdfPages(
   return results;
 }
 
-/**
- * Send a rendered page PNG to Claude Vision and return a plain-text description.
- * Only called when aiEnhancement is on and the page's extracted text is poor quality.
- */
-export async function describePageWithAI(
-  imagePath: string,
-  apiKey: string,
-  pageNumber: number,
-): Promise<string> {
+export async function describePageWithAI(imagePath: string, apiKey: string, pageNumber: number): Promise<string> {
   const { readFile } = await import('fs/promises');
-  const imageData = await readFile(imagePath);
-  const base64 = imageData.toString('base64');
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: base64 },
-            },
-            {
-              type: 'text',
-              text: `This is page ${pageNumber} of a PDF document. Extract all text content exactly as it appears, preserving paragraph structure. If the page contains figures, charts, or diagrams, describe them concisely after the text. Output plain text only — no markdown, no commentary.`,
-            },
-          ],
-        },
+  const client = new Anthropic({ apiKey });
+  const base64 = (await readFile(imagePath)).toString('base64');
+
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: base64 } },
+        { type: 'text', text: `This is page ${pageNumber} of a PDF. Extract all text preserving paragraph structure. Describe any figures or diagrams concisely after the text. Plain text only.` },
       ],
-    }),
+    }],
   });
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Anthropic API request failed (${response.status}): ${message}`);
-  }
-
-  const message = (await response.json()) as {
-    content?: Array<{ type?: string; text?: string }>;
-  };
-
-  const block = message.content?.[0];
+  const block = message.content[0];
   return block.type === 'text' ? block.text : '';
 }
