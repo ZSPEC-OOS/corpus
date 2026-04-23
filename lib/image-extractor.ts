@@ -13,7 +13,7 @@ export interface PageImage {
 }
 
 /**
- * Render every page of a PDF to a PNG file using pdfjs-dist + canvas.
+ * Render every page of a PDF to a PNG file using pdfjs-dist + @napi-rs/canvas.
  * Saved under dataDir/images/runId/page-{n}.png.
  */
 export async function renderPdfPages(
@@ -22,7 +22,7 @@ export async function renderPdfPages(
   runId: string,
   scaleFactor = 1.5,
 ): Promise<PageImage[]> {
-  const { createCanvas } = await import('canvas');
+  const { createCanvas } = await import('@napi-rs/canvas');
   const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   GlobalWorkerOptions.workerSrc = '';
 
