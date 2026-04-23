@@ -4,11 +4,18 @@ import { resolve } from 'path';
 import { NextResponse } from 'next/server';
 import { createDocument, ensureParentDir, getDataDir, listDocuments } from '@/lib/inMemoryStore';
 
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB
+
 export async function GET() {
   return NextResponse.json(listDocuments());
 }
 
 export async function POST(request: Request) {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && Number(contentLength) > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: 'File exceeds the 100 MB upload limit.' }, { status: 413 });
+  }
+
   const formData = await request.formData();
   const file = formData.get('file');
   const pageCountValue = formData.get('pageCount');
@@ -19,6 +26,10 @@ export async function POST(request: Request) {
 
   if (file.type !== 'application/pdf') {
     return NextResponse.json({ error: 'Only PDF uploads are supported.' }, { status: 415 });
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: 'File exceeds the 100 MB upload limit.' }, { status: 413 });
   }
 
   const arrayBuffer = await file.arrayBuffer();

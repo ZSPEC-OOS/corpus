@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { writeFile } from 'fs/promises';
+import { resolve, dirname, relative } from 'path';
 import { createIdleSteps } from './pipeline';
 import { AppSettings, CollectionRecord, DocumentRecord, OutputArtifact, PipelineRun, SchemaRecord, StoreData } from './types';
 
@@ -25,17 +26,14 @@ const initialData: StoreData = {
   settings: defaultSettings,
 };
 
-const ensureDataDir = () => {
-  mkdirSync(DATA_DIR, { recursive: true });
-};
+const ensureDataDir = () => mkdirSync(DATA_DIR, { recursive: true });
 
 const loadData = (): StoreData => {
   ensureDataDir();
   if (!existsSync(DATA_FILE)) {
     writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
-    return initialData;
+    return { ...initialData };
   }
-
   try {
     const parsed = JSON.parse(readFileSync(DATA_FILE, 'utf-8')) as Partial<StoreData>;
     return {
@@ -47,27 +45,51 @@ const loadData = (): StoreData => {
       settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
     };
   } catch {
-    return initialData;
+    return { ...initialData };
   }
 };
 
 let db = loadData();
 
-const persist = () => {
-  ensureDataDir();
-  writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
+// Async write queue: serialises concurrent persist calls without blocking the
+// event loop. Each call captures the current db snapshot and chains onto the
+// previous write so writes never race.
+let persistQueue: Promise<void> = Promise.resolve();
+
+const persist = (): void => {
+  const snapshot = JSON.stringify(db, null, 2);
+  persistQueue = persistQueue
+    .then(() => {
+      ensureDataDir();
+      return writeFile(DATA_FILE, snapshot, 'utf-8');
+    })
+    .catch((err: unknown) => console.error('[store] persist error:', err));
 };
+
+// Convert an absolute path inside DATA_DIR to a relative one for portability.
+// Paths already relative are returned unchanged.
+export const toRelativePath = (absOrRel: string): string => {
+  if (!absOrRel.startsWith('/')) return absOrRel;
+  return relative(DATA_DIR, absOrRel);
+};
+
+// Resolve a stored path (relative or legacy absolute) to an absolute path.
+export const resolveStoragePath = (stored: string): string =>
+  stored.startsWith('/') ? stored : resolve(DATA_DIR, stored);
 
 export const getDataDir = () => DATA_DIR;
 export const ensureParentDir = (filePath: string) => mkdirSync(dirname(filePath), { recursive: true });
 
 export const listDocuments = () => db.documents;
-export const getDocument = (id: string) => db.documents.find((document) => document.id === id);
+export const getDocument = (id: string) => db.documents.find((d) => d.id === id);
+
 export const createDocument = (input: Omit<DocumentRecord, 'id' | 'uploadedAt'>): DocumentRecord => {
   const record: DocumentRecord = {
     id: crypto.randomUUID(),
     uploadedAt: new Date().toISOString(),
     ...input,
+    // Normalise to relative path so the store is portable across machines.
+    storagePath: input.storagePath ? toRelativePath(input.storagePath) : input.storagePath,
     collectionIds: input.collectionIds ?? [],
   };
   db.documents = [record, ...db.documents];
@@ -77,11 +99,11 @@ export const createDocument = (input: Omit<DocumentRecord, 'id' | 'uploadedAt'>)
 
 export const deleteDocument = (id: string): boolean => {
   const before = db.documents.length;
-  db.documents = db.documents.filter((document) => document.id !== id);
+  db.documents = db.documents.filter((d) => d.id !== id);
   if (db.documents.length === before) return false;
-  db.collections = db.collections.map((collection) => ({
-    ...collection,
-    documentIds: collection.documentIds.filter((docId) => docId !== id),
+  db.collections = db.collections.map((c) => ({
+    ...c,
+    documentIds: c.documentIds.filter((dId) => dId !== id),
     updatedAt: new Date().toISOString(),
   }));
   persist();
@@ -104,19 +126,19 @@ export const createPipeline = (documentId: string): PipelineRun => {
 };
 
 export const listPipelines = () => db.pipelines;
-export const getPipeline = (id: string) => db.pipelines.find((pipeline) => pipeline.id === id);
+export const getPipeline = (id: string) => db.pipelines.find((p) => p.id === id);
 
 export const updatePipeline = (id: string, updater: (run: PipelineRun) => PipelineRun): PipelineRun | null => {
   const current = getPipeline(id);
   if (!current) return null;
   const updated = { ...updater(current), updatedAt: new Date().toISOString() };
-  db.pipelines = db.pipelines.map((pipeline) => (pipeline.id === id ? updated : pipeline));
+  db.pipelines = db.pipelines.map((p) => (p.id === id ? updated : p));
   persist();
   return updated;
 };
 
 export const listArtifacts = () => db.artifacts;
-export const getArtifact = (id: string) => db.artifacts.find((artifact) => artifact.id === id);
+export const getArtifact = (id: string) => db.artifacts.find((a) => a.id === id);
 
 export const deleteArtifactsByPipelineId = (pipelineRunId: string): number => {
   const before = db.artifacts.length;
@@ -131,6 +153,8 @@ export const createArtifact = (artifact: Omit<OutputArtifact, 'id' | 'createdAt'
     ...artifact,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
+    // Normalise storagePath to relative
+    storagePath: artifact.storagePath ? toRelativePath(artifact.storagePath) : artifact.storagePath,
   };
   db.artifacts = [next, ...db.artifacts];
   db.pipelines = db.pipelines.map((run) => {
@@ -142,7 +166,7 @@ export const createArtifact = (artifact: Omit<OutputArtifact, 'id' | 'createdAt'
 };
 
 export const listCollections = () => db.collections;
-export const getCollection = (id: string) => db.collections.find((collection) => collection.id === id);
+export const getCollection = (id: string) => db.collections.find((c) => c.id === id);
 
 export const createCollection = (payload: { name: string; description?: string }): CollectionRecord => {
   const now = new Date().toISOString();
@@ -159,55 +183,48 @@ export const createCollection = (payload: { name: string; description?: string }
   return collection;
 };
 
-export const updateCollection = (id: string, payload: Partial<Pick<CollectionRecord, 'name' | 'description' | 'documentIds'>>) => {
+export const updateCollection = (
+  id: string,
+  payload: Partial<Pick<CollectionRecord, 'name' | 'description' | 'documentIds'>>,
+) => {
   const existing = getCollection(id);
   if (!existing) return null;
-  const updated: CollectionRecord = {
-    ...existing,
-    ...payload,
-    updatedAt: new Date().toISOString(),
-  };
-  db.collections = db.collections.map((collection) => (collection.id === id ? updated : collection));
+  const updated: CollectionRecord = { ...existing, ...payload, updatedAt: new Date().toISOString() };
+  db.collections = db.collections.map((c) => (c.id === id ? updated : c));
   persist();
   return updated;
 };
 
 export const deleteCollection = (id: string) => {
   const before = db.collections.length;
-  db.collections = db.collections.filter((collection) => collection.id !== id);
+  db.collections = db.collections.filter((c) => c.id !== id);
   if (before === db.collections.length) return false;
-  db.documents = db.documents.map((document) => ({
-    ...document,
-    collectionIds: (document.collectionIds ?? []).filter((collectionId) => collectionId !== id),
+  db.documents = db.documents.map((d) => ({
+    ...d,
+    collectionIds: (d.collectionIds ?? []).filter((cId) => cId !== id),
   }));
   persist();
   return true;
 };
 
 export const listSchemas = () => db.schemas;
-export const getSchema = (id: string) => db.schemas.find((schema) => schema.id === id);
+export const getSchema = (id: string) => db.schemas.find((s) => s.id === id);
 
-export const createSchema = (payload: Omit<SchemaRecord, 'id' | 'createdAt' | 'updatedAt' | 'isActive'> & { isActive?: boolean }) => {
+export const createSchema = (
+  payload: Omit<SchemaRecord, 'id' | 'createdAt' | 'updatedAt' | 'isActive'> & { isActive?: boolean },
+) => {
   const now = new Date().toISOString();
-  const schema: SchemaRecord = {
-    ...payload,
-    id: crypto.randomUUID(),
-    isActive: false,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const schema: SchemaRecord = { ...payload, id: crypto.randomUUID(), isActive: false, createdAt: now, updatedAt: now };
   db.schemas = [schema, ...db.schemas];
-  if (payload.isActive) {
-    return activateSchema(schema.id) ?? schema;
-  }
+  if (payload.isActive) return activateSchema(schema.id) ?? schema;
   persist();
   return schema;
 };
 
 export const activateSchema = (id: string): SchemaRecord | null => {
   let found: SchemaRecord | null = null;
-  db.schemas = db.schemas.map((schema) => {
-    const next = { ...schema, isActive: schema.id === id, updatedAt: new Date().toISOString() };
+  db.schemas = db.schemas.map((s) => {
+    const next = { ...s, isActive: s.id === id, updatedAt: new Date().toISOString() };
     if (next.id === id) found = next;
     return next;
   });
