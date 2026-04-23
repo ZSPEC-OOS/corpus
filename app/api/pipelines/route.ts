@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createPipeline, documents, pipelines } from '@/lib/inMemoryStore';
+import { createPipeline, getDocument, listPipelines } from '@/lib/inMemoryStore';
 
 export async function GET() {
-  return NextResponse.json(Array.from(pipelines.values()));
+  return NextResponse.json(listPipelines());
 }
 
 export async function POST(request: Request) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'documentId is required.' }, { status: 400 });
   }
 
-  if (!documents.has(documentId)) {
+  if (!getDocument(documentId)) {
     return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
   }
 

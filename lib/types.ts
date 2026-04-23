@@ -7,16 +7,18 @@ export type PipelineStatus =
   | 'skipped'
   | 'canceled';
 
+export type PipelineStepKey =
+  | 'ingestion'
+  | 'ocr_text_cleaning'
+  | 'structure_detection'
+  | 'chunking'
+  | 'deduplication'
+  | 'quality_scoring'
+  | 'schema_validation'
+  | 'output_generation';
+
 export type PipelineStep = {
-  key:
-    | 'ingestion'
-    | 'ocr_text_cleaning'
-    | 'structure_detection'
-    | 'chunking'
-    | 'deduplication'
-    | 'quality_scoring'
-    | 'schema_validation'
-    | 'output_generation';
+  key: PipelineStepKey;
   title: string;
   description: string;
   status: PipelineStatus;
@@ -34,22 +36,24 @@ export type DocumentRecord = {
   filename: string;
   mimeType: string;
   sizeBytes: number;
+  storagePath?: string;
   uploadedAt: string;
   pageCount?: number;
   sha256?: string;
   sourceUrl?: string;
   detectedLanguage?: string;
   docType?: string;
+  collectionIds?: string[];
 };
 
-export type OutputArtifact = {
-  id: string;
-  type: 'jsonl' | 'json' | 'directory' | 'shard';
-  filename: string;
-  sizeBytes?: number;
-  recordCount?: number;
-  contentPreview?: string;
-  downloadUrl?: string;
+export type PipelineStatistics = {
+  totalRecords?: number;
+  totalSizeBytes?: number;
+  avgRecordSizeBytes?: number;
+  totalTokens?: number;
+  shardCount?: number;
+  duplicatesRemoved?: number;
+  validationFailures?: number;
 };
 
 export type PipelineRun = {
@@ -59,44 +63,65 @@ export type PipelineRun = {
   steps: PipelineStep[];
   createdAt: string;
   updatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
   schemaVersion?: string;
+  outputArtifactIds?: string[];
   outputArtifacts?: OutputArtifact[];
   schema?: string;
-  statistics?: {
-    totalRecords?: number;
-    totalSizeBytes?: number;
-    avgRecordSizeBytes?: number;
-    totalTokens?: number;
-    shardCount?: number;
-    duplicatesRemoved?: number;
-    validationFailures?: number;
-    qualityScore?: number;
-    ocrConfidence?: number;
-  };
+  statistics?: PipelineStatistics;
+};
+
+export type OutputArtifact = {
+  id: string;
+  pipelineRunId: string;
+  type: 'jsonl' | 'json' | 'directory' | 'shard';
+  filename: string;
+  sizeBytes?: number;
+  recordCount?: number;
+  contentPreview?: string;
+  checksumSha256?: string;
+  schemaVersion?: string;
+  createdAt: string;
+  downloadUrl?: string;
+  storagePath?: string;
 };
 
 export type CollectionRecord = {
   id: string;
   name: string;
   description?: string;
-  sourceIds: string[];
-  pipelineIds: string[];
-  artifactIds: string[];
+  createdAt: string;
   updatedAt: string;
+  documentIds: string[];
 };
 
 export type SchemaRecord = {
   id: string;
   name: string;
   version: string;
-  source: string;
   content: string;
+  format: 'json_schema' | 'pydantic_export' | 'other';
+  isActive: boolean;
+  createdAt: string;
   updatedAt: string;
 };
 
 export type AppSettings = {
-  timezone: string;
-  defaultLandingPage: '/dashboard' | '/pipelines';
-  outputFormat: 'jsonl' | 'json';
-  includeProvenance: boolean;
+  defaultExportFormat?: 'jsonl' | 'json';
+  targetShardSizeMb?: number;
+  includeTokenCounts?: boolean;
+  includeProvenance?: boolean;
+  strictSchemaValidation?: boolean;
+  ocrEnabled?: boolean;
+  dedupeSensitivity?: 'low' | 'medium' | 'high';
+};
+
+export type StoreData = {
+  documents: DocumentRecord[];
+  pipelines: PipelineRun[];
+  artifacts: OutputArtifact[];
+  collections: CollectionRecord[];
+  schemas: SchemaRecord[];
+  settings: AppSettings;
 };

@@ -17,7 +17,7 @@ const items = [
   { label: 'Schema', icon: Sigma, href: '/schema' },
   { label: 'Exports', icon: FileOutput, href: '/exports' },
   { label: 'Settings', icon: Settings, href: '/settings' },
-];
+] as const;
 
 export function SidebarNav({ runStatus }: { runStatus?: PipelineStatus }) {
   const pathname = usePathname();
