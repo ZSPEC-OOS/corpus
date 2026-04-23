@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { writeFileSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { NextResponse } from 'next/server';
 import { createDocument, ensureParentDir, getDataDir, listDocuments } from '@/lib/inMemoryStore';
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = resolve(getDataDir(), 'uploads', `${crypto.randomUUID()}-${safeName}`);
   ensureParentDir(storagePath);
-  writeFileSync(storagePath, buffer);
+  await writeFile(storagePath, buffer);
 
   const pageCount = typeof pageCountValue === 'string' ? Number(pageCountValue) : undefined;
 

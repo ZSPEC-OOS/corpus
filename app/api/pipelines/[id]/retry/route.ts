@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createIdleSteps } from '@/lib/pipeline';
-import { updatePipeline } from '@/lib/inMemoryStore';
+import { deleteArtifactsByPipelineId, updatePipeline } from '@/lib/inMemoryStore';
 
 export async function POST(_: Request, { params }: { params: { id: string } }) {
+  deleteArtifactsByPipelineId(params.id);
+
   const run = updatePipeline(params.id, (current) => {
     if (!(current.status === 'failed' || current.status === 'canceled')) return current;
     return {

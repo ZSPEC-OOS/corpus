@@ -118,6 +118,14 @@ export const updatePipeline = (id: string, updater: (run: PipelineRun) => Pipeli
 export const listArtifacts = () => db.artifacts;
 export const getArtifact = (id: string) => db.artifacts.find((artifact) => artifact.id === id);
 
+export const deleteArtifactsByPipelineId = (pipelineRunId: string): number => {
+  const before = db.artifacts.length;
+  db.artifacts = db.artifacts.filter((a) => a.pipelineRunId !== pipelineRunId);
+  const deleted = before - db.artifacts.length;
+  if (deleted > 0) persist();
+  return deleted;
+};
+
 export const createArtifact = (artifact: Omit<OutputArtifact, 'id' | 'createdAt'>): OutputArtifact => {
   const next: OutputArtifact = {
     ...artifact,
