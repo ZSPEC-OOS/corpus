@@ -24,7 +24,7 @@ export function SidebarNav() {
     <aside className="hidden h-screen w-64 flex-col border-r border-border bg-[#000000] p-4 lg:flex lg:sticky lg:top-0">
       {/* Logo */}
       <Link href="/corpus" className="mb-8 flex items-center gap-3">
-        <Image src="/corpus-icon.svg" alt="CORPUS" width={36} height={36} priority />
+        <Image src="/headelogo.JPG" alt="CORPUS" width={36} height={36} priority />
         <span className="gradient-text text-2xl font-bold tracking-[0.18em]">CORPUS</span>
       </Link>
 
