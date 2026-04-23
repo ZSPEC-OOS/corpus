@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { documents } from '@/lib/inMemoryStore';
 import { DocumentRecord } from '@/lib/types';
 
+export async function GET() {
+  return NextResponse.json(Array.from(documents.values()));
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get('file');

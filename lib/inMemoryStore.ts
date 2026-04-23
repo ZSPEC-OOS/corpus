@@ -1,8 +1,17 @@
 import { createIdleSteps } from './pipeline';
-import { DocumentRecord, PipelineRun } from './types';
+import { AppSettings, CollectionRecord, DocumentRecord, PipelineRun, SchemaRecord } from './types';
 
 export const documents = new Map<string, DocumentRecord>();
 export const pipelines = new Map<string, PipelineRun>();
+export const collections = new Map<string, CollectionRecord>();
+export const schemas = new Map<string, SchemaRecord>();
+
+export let settings: AppSettings = {
+  timezone: 'UTC',
+  defaultLandingPage: '/pipelines',
+  outputFormat: 'jsonl',
+  includeProvenance: true,
+};
 
 const nowIso = () => new Date().toISOString();
 

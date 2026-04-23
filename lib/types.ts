@@ -70,5 +70,33 @@ export type PipelineRun = {
     shardCount?: number;
     duplicatesRemoved?: number;
     validationFailures?: number;
+    qualityScore?: number;
+    ocrConfidence?: number;
   };
+};
+
+export type CollectionRecord = {
+  id: string;
+  name: string;
+  description?: string;
+  sourceIds: string[];
+  pipelineIds: string[];
+  artifactIds: string[];
+  updatedAt: string;
+};
+
+export type SchemaRecord = {
+  id: string;
+  name: string;
+  version: string;
+  source: string;
+  content: string;
+  updatedAt: string;
+};
+
+export type AppSettings = {
+  timezone: string;
+  defaultLandingPage: '/dashboard' | '/pipelines';
+  outputFormat: 'jsonl' | 'json';
+  includeProvenance: boolean;
 };

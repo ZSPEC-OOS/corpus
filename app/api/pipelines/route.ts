@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createPipeline, documents } from '@/lib/inMemoryStore';
+import { createPipeline, documents, pipelines } from '@/lib/inMemoryStore';
+
+export async function GET() {
+  return NextResponse.json(Array.from(pipelines.values()));
+}
 
 export async function POST(request: Request) {
   const body = await request.json();
