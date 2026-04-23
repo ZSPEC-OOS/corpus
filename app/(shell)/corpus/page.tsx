@@ -10,6 +10,7 @@ type BuildStats = {
   duplicatesRemoved: number;
   pagesProcessed: number;
   avgQuality: number;
+  aiPagesEnhanced: number;
 };
 
 type OutputState = { url: string; filename: string; stats: BuildStats } | null;
@@ -63,6 +64,7 @@ export default function CorpusBuilderPage() {
           duplicatesRemoved: Number(res.headers.get('X-Corpus-Duplicates-Removed') ?? 0),
           pagesProcessed: Number(res.headers.get('X-Corpus-Pages-Processed') ?? 0),
           avgQuality: Number(res.headers.get('X-Corpus-Avg-Quality') ?? 0),
+          aiPagesEnhanced: Number(res.headers.get('X-Corpus-AI-Pages-Enhanced') ?? 0),
         },
       });
     } catch (err) {
@@ -178,6 +180,11 @@ export default function CorpusBuilderPage() {
               <dd className="mt-1 text-xl font-semibold">{(output.stats.avgQuality * 100).toFixed(1)}%</dd>
             </div>
           </dl>
+          {output.stats.aiPagesEnhanced > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              ✦ {output.stats.aiPagesEnhanced} page{output.stats.aiPagesEnhanced !== 1 ? 's' : ''} recovered via AI Vision fallback.
+            </p>
+          )}
 
           <p className="mt-3 text-xs text-muted">
             {output.stats.pagesProcessed} pages processed across {pdfs.length} PDF{pdfs.length !== 1 ? 's' : ''}.

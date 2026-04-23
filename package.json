@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "canvas": "^3.2.3",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "14.2.15",
