@@ -8,14 +8,13 @@ import { cn } from './utils';
 import { StatusBadge } from './status-badge';
 
 const items = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { label: 'Pipelines', icon: Workflow, href: '/pipelines' },
+  { label: 'Corpus Builder', icon: FileOutput, href: '/corpus' },
   { label: 'Sources', icon: Database, href: '/sources' },
+  { label: 'Pipelines', icon: Workflow, href: '/pipelines' },
   { label: 'Collections', icon: FolderTree, href: '/collections' },
   { label: 'Quality', icon: Gauge, href: '/quality' },
   { label: 'Deduplication', icon: GitBranch, href: '/deduplication' },
   { label: 'Schema', icon: Sigma, href: '/schema' },
-  { label: 'Exports', icon: FileOutput, href: '/exports' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ] as const;
 
@@ -41,7 +40,7 @@ export function SidebarNav({ runStatus }: { runStatus?: PipelineStatus }) {
           <div className="mb-2 text-xs uppercase text-muted">Current Pipeline</div>
           {runStatus ? <StatusBadge status={runStatus} /> : <div className="text-muted">No active run</div>}
         </section>
-        <Link href="/pipelines" className="block w-full rounded-lg bg-accent px-4 py-2 text-center text-sm font-semibold text-white">Create New Pipeline</Link>
+        <Link href="/corpus" className="block w-full rounded-lg bg-accent px-4 py-2 text-center text-sm font-semibold text-white">Build Corpus</Link>
       </div>
     </aside>
   );
