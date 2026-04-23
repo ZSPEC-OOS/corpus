@@ -32,22 +32,9 @@ export async function renderPdfPages(
   const doc = await getDocument({
     data,
     verbosity: 0,
-    // Provide a canvas factory so pdfjs can render in Node.js
-    canvasFactory: {
-      create(width: number, height: number) {
-        const canvas = createCanvas(width, height);
-        return { canvas, context: canvas.getContext('2d') };
-      },
-      reset(canvasAndCtx: { canvas: ReturnType<typeof createCanvas>; context: unknown }, width: number, height: number) {
-        canvasAndCtx.canvas.width = width;
-        canvasAndCtx.canvas.height = height;
-      },
-      destroy(canvasAndCtx: { canvas: ReturnType<typeof createCanvas> }) {
-        canvasAndCtx.canvas.width = 0;
-        canvasAndCtx.canvas.height = 0;
-      },
-    },
-  }).promise;
+    // canvasFactory is valid at runtime but absent from the bundled type defs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any).promise;
 
   const outDir = resolve(dataDir, 'images', runId);
   mkdirSync(outDir, { recursive: true });
