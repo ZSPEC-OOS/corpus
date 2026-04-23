@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const links = ['/dashboard','/pipelines','/sources','/collections','/quality','/deduplication','/schema','/exports','/settings'];
+const links = ['/dashboard', '/pipelines', '/sources', '/collections', '/quality', '/deduplication', '/schema', '/exports', '/settings'] as const;
 
 export function MobileNav() {
   const pathname = usePathname();

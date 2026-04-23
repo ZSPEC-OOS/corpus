@@ -1,10 +1,11 @@
 import { createHash } from 'crypto';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { NextResponse } from 'next/server';
-import { documents } from '@/lib/inMemoryStore';
-import { DocumentRecord } from '@/lib/types';
+import { createDocument, ensureParentDir, getDataDir, listDocuments } from '@/lib/inMemoryStore';
 
 export async function GET() {
-  return NextResponse.json(Array.from(documents.values()));
+  return NextResponse.json(listDocuments());
 }
 
 export async function POST(request: Request) {
@@ -20,23 +21,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Only PDF uploads are supported.' }, { status: 415 });
   }
 
-  const pageCount = typeof pageCountValue === 'string' ? Number(pageCountValue) : undefined;
-  const normalizedPageCount = Number.isFinite(pageCount) && pageCount > 0 ? pageCount : undefined;
-
   const arrayBuffer = await file.arrayBuffer();
-  const sha256 = createHash('sha256').update(Buffer.from(arrayBuffer)).digest('hex');
+  const buffer = Buffer.from(arrayBuffer);
+  const sha256 = createHash('sha256').update(buffer).digest('hex');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = resolve(getDataDir(), 'uploads', `${crypto.randomUUID()}-${safeName}`);
+  ensureParentDir(storagePath);
+  writeFileSync(storagePath, buffer);
 
-  const document: DocumentRecord = {
-    id: crypto.randomUUID(),
+  const pageCount = typeof pageCountValue === 'string' ? Number(pageCountValue) : undefined;
+
+  const created = createDocument({
     filename: file.name,
     mimeType: file.type,
     sizeBytes: file.size,
-    uploadedAt: new Date().toISOString(),
-    pageCount: normalizedPageCount,
+    storagePath,
+    pageCount: Number.isFinite(pageCount) && pageCount && pageCount > 0 ? pageCount : undefined,
     sha256,
-  };
+  });
 
-  documents.set(document.id, document);
-
-  return NextResponse.json(document, { status: 201 });
+  return NextResponse.json(created, { status: 201 });
 }
