@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="50%" stop-color="#4f6fff"/>
+      <stop offset="100%" stop-color="#b44fff"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f6fff"/>
+      <stop offset="100%" stop-color="#b44fff"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- top layer -->
+  <rect x="10" y="8" width="44" height="14" rx="4" stroke="url(#g1)" stroke-width="2.5" fill="none" filter="url(#glow)"/>
+  <!-- middle layer -->
+  <rect x="10" y="26" width="44" height="14" rx="4" stroke="url(#g2)" stroke-width="2.5" fill="none" filter="url(#glow)"/>
+  <!-- bottom layer -->
+  <rect x="10" y="44" width="44" height="14" rx="4" stroke="#b44fff" stroke-width="2.5" fill="none" filter="url(#glow)"/>
+</svg>
