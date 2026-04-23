@@ -115,6 +115,10 @@ export type AppSettings = {
   strictSchemaValidation?: boolean;
   ocrEnabled?: boolean;
   dedupeSensitivity?: 'low' | 'medium' | 'high';
+  // AI enhancement
+  aiEnhancement?: boolean;       // use vision AI on low-quality pages
+  extractImages?: boolean;       // render pages to PNG and attach to records
+  aiQualityThreshold?: number;   // 0–1; pages scoring below this trigger AI fallback
 };
 
 export type StoreData = {
