@@ -16,9 +16,8 @@ const tabs = [
 
 export function MobileHeader() {
   return (
-    <header className="flex items-center gap-2 border-b border-border bg-black px-4 py-3 safe-top lg:hidden">
-      <Image src="/headelogo.JPG" alt="" width={28} height={28} />
-      <span className="gradient-text text-lg font-bold tracking-[0.18em]">CORPUS</span>
+    <header className="flex items-center border-b border-border bg-black px-4 py-3 safe-top lg:hidden">
+      <Image src="/headelogo.JPG" alt="CORPUS" width={126} height={42} />
     </header>
   );
 }
