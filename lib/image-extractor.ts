@@ -95,32 +95,46 @@ export async function describePageWithAI(
   pageNumber: number,
 ): Promise<string> {
   const { readFile } = await import('fs/promises');
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-
-  const client = new Anthropic({ apiKey });
   const imageData = await readFile(imagePath);
   const base64 = imageData.toString('base64');
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: 'image/png', data: base64 },
-          },
-          {
-            type: 'text',
-            text: `This is page ${pageNumber} of a PDF document. Extract all text content exactly as it appears, preserving paragraph structure. If the page contains figures, charts, or diagrams, describe them concisely after the text. Output plain text only — no markdown, no commentary.`,
-          },
-        ],
-      },
-    ],
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/png', data: base64 },
+            },
+            {
+              type: 'text',
+              text: `This is page ${pageNumber} of a PDF document. Extract all text content exactly as it appears, preserving paragraph structure. If the page contains figures, charts, or diagrams, describe them concisely after the text. Output plain text only — no markdown, no commentary.`,
+            },
+          ],
+        },
+      ],
+    }),
   });
 
-  const block = message.content[0];
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Anthropic API request failed (${response.status}): ${message}`);
+  }
+
+  const message = (await response.json()) as {
+    content?: Array<{ type?: string; text?: string }>;
+  };
+
+  const block = message.content?.[0];
   return block.type === 'text' ? block.text : '';
 }
